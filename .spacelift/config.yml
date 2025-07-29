@@ -1,0 +1,94 @@
+version: "1"
+
+# Stack configuration
+stacks:
+  - id: "opentofu-module-tests"
+    name: "OpenTofu Module Tests"
+    description: "Automated testing for OpenTofu module"
+    
+    # Use OpenTofu instead of Terraform
+    vendor:
+      opentofu:
+        version: "1.10.0"
+    
+    # Repository settings
+    repository: "Spheny1/POC-module-dependent"  # Update this to your actual repo
+    branch: "main"
+    project_root: "/"  # Adjust if your module is in a subdirectory
+    
+    # Trigger settings
+    autodeploy: false  # We only want to run tests, not deploy
+    autoretry: false
+    
+    # Test-only workflow
+    workflow:
+      # Initialize phase
+      - phase: "INIT"
+        steps:
+          - name: "Initialize OpenTofu"
+            command: "tofu init"
+            
+      # Test phase (replaces the normal PLAN phase)
+      - phase: "PLAN"
+        steps:
+          - name: "Run OpenTofu Tests"
+            command: "tofu test -json"
+            continue_on_failure: false
+          
+          - name: "Display Test Results"
+            command: |
+              echo "Test execution completed"
+              echo "Check the previous step for detailed test results"
+    
+    # Environment variables (if needed)
+    environment:
+      - name: "TF_LOG"
+        value: "INFO"
+        write_only: false
+      
+      # Add any custom variables your tests might need
+      - name: "TEST_ENVIRONMENT"
+        value: "ci"
+        write_only: false
+    
+    # Policies and checks
+    policies:
+      # Skip deployment since this is test-only
+      plan: []
+      
+    # Notifications (optional)
+    integrations:
+      webhooks: []
+    
+    # Labels for organization
+    labels:
+      - "testing"
+      - "opentofu"
+      - "module"
+
+# Global hooks (optional)
+hooks:
+  # Before init hook to ensure we have the right tools
+  before_init:
+    - name: "Verify OpenTofu Installation"
+      command: |
+        tofu version
+        echo "OpenTofu is ready for testing"
+
+  # After init hook for any additional setup
+  after_init:
+    - name: "Validate Configuration"
+      command: |
+        tofu validate
+        echo "Configuration validation passed"
+
+  # Custom test reporting hook
+  after_plan:
+    - name: "Generate Test Report"
+      command: |
+        echo "========== TEST SUMMARY =========="
+        echo "Repository: $SPACELIFT_REPOSITORY"
+        echo "Branch: $SPACELIFT_BRANCH"
+        echo "Commit: $SPACELIFT_COMMIT_SHA"
+        echo "Timestamp: $(date)"
+        echo "=================================="
